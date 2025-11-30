@@ -1,0 +1,132 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+
+
+# =========================================================
+# Membuat sliding window 2D (tanpa loop)
+# =========================================================
+def sliding_window_view(img, kh, kw):
+    shape = (
+        img.shape[0] - kh + 1,
+        img.shape[1] - kw + 1,
+        kh,
+        kw
+    )
+    strides = img.strides * 2
+    return np.lib.stride_tricks.as_strided(img, shape=shape, strides=strides)
+
+
+# =========================================================
+# Konvolusi manual versi cepat
+# =========================================================
+def convolve(img, kernel):
+    kh, kw = kernel.shape
+    pad_h = kh // 2
+    pad_w = kw // 2
+
+    padded = np.pad(img, ((pad_h, pad_h), (pad_w, pad_w)), mode='edge')
+
+    windows = sliding_window_view(padded, kh, kw)
+    result = np.sum(windows * kernel[::-1, ::-1], axis=(2, 3))
+
+    return np.abs(result)
+
+
+# ===========================
+# Kernel ROBERTS
+# ===========================
+def roberts_kernels():
+    kx = np.array([[1, 0],
+                   [0,-1]], dtype=np.float32)
+    ky = np.array([[0, 1],
+                   [-1,0]], dtype=np.float32)
+    return kx, ky
+
+# ===========================
+# Kernel PREWITT
+# ===========================
+def prewitt_kernels():
+    kx = np.array([[-1,0,1],
+                   [-1,0,1],
+                   [-1,0,1]], dtype=np.float32)
+
+    ky = np.array([[ 1,1,1],
+                   [ 0,0,0],
+                   [-1,-1,-1]], dtype=np.float32)
+    return kx, ky
+
+# ===========================
+# Kernel SOBEL
+# ===========================
+def sobel_kernels():
+    kx = np.array([[-1,0,1],
+                   [-2,0,2],
+                   [-1,0,1]], dtype=np.float32)
+
+    ky = np.array([[ 1,2,1],
+                   [ 0,0,0],
+                   [-1,-2,-1]], dtype=np.float32)
+    return kx, ky
+
+# ===========================
+# Kernel FREI-CHEN
+# ===========================
+def frei_chen_kernels():
+    a = np.sqrt(2)
+    kx = np.array([[-1,0,1],
+                   [-a,0,a],
+                   [-1,0,1]], dtype=np.float32)
+
+    ky = np.array([[ 1, a, 1],
+                   [ 0, 0, 0],
+                   [-1,-a,-1]], dtype=np.float32)
+    return kx, ky
+
+
+# ===========================
+# Edge detection
+# ===========================
+def edge_detection(img, kernels):
+    kx, ky = kernels
+    gx = convolve(img, kx)
+    gy = convolve(img, ky)
+    mag = np.sqrt(gx**2 + gy**2)
+    mag = (mag / mag.max()) * 255
+    return mag.astype(np.uint8)
+
+
+
+# ===========================
+# MAIN PROGRAM
+# ===========================
+if __name__ == "__main__":
+    path = "gaussian_heavy_portrait_grey.png"   # ganti sesuai file Anda
+    img = Image.open(path).convert("L")
+    img = np.array(img, dtype=np.float32)
+
+    rob = edge_detection(img, roberts_kernels())
+    pre = edge_detection(img, prewitt_kernels())
+    sob = edge_detection(img, sobel_kernels())
+    frei = edge_detection(img, frei_chen_kernels())
+
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2,2,1)
+    plt.imshow(rob, cmap="gray")
+    plt.title("Roberts")
+
+    plt.subplot(2,2,2)
+    plt.imshow(pre, cmap="gray")
+    plt.title("Prewitt")
+
+    plt.subplot(2,2,3)
+    plt.imshow(sob, cmap="gray")
+    plt.title("Sobel")
+
+    plt.subplot(2,2,4)
+    plt.imshow(frei, cmap="gray")
+    plt.title("Frei-Chen")
+
+    plt.tight_layout()
+    plt.show()
